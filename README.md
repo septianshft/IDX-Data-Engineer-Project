@@ -1,45 +1,64 @@
-# 🏗️ End-to-End Data Warehouse & ELT Pipeline
+# 🏦 End-to-End Data Warehouse & ELT Pipeline
 
 ## 📌 Project Overview
-This project demonstrates the design and implementation of an end-to-end Data Warehouse (DWH) using an **ELT (Extract, Load, Transform)** architecture. The goal is to integrate banking transaction data from multiple heterogeneous sources (SQL Server Database, CSV, and Excel) into a centralized Data Warehouse with a Star Schema design to support daily reporting and customer balance analytics.
+This project demonstrates the design and implementation of a scalable **Data Warehouse (DWH)** using an **ELT (Extract, Load, Transform)** architecture. The system integrates banking transaction data from multiple heterogeneous sources (SQL Server, CSV, and Excel) into a centralized Star Schema to support daily financial reporting and customer balance analytics.
 
 ## 🛠️ Tech Stack
-* **Database:** Microsoft SQL Server (SSMS)
-* **Data Integration / Pipeline:** Apache NiFi
-* **Languages:** SQL
-* **Data Sources:** Relational Database (`.bak`), CSV, Excel
+* **Orchestration & Ingestion:** Apache NiFi
+* **Database & Warehousing:** Microsoft SQL Server (SSMS)
+* **Architecture:** ELT (Extract, Load, Transform)
+* **Languages:** SQL (T-SQL)
 
 ## 📂 Repository Structure
-* `sample.bak` : The source operational database backup.
-* `transaction_csv.csv` : Raw transaction data from an external branch.
-* `transaction_excel.xlsx` : Raw transaction data containing Unix timestamp formats.
-* `1_DDL_DWH_Schema.sql` : Scripts to create Staging, Dimension, and Fact tables.
-* `2_ELT_Stored_Procedure.sql` : The core transformation logic to populate the DWH.
-* `3_Reporting_Analytics.sql` : Stored Procedures for business reporting.
+* `01_DDL_Schema_Setup.sql` : Scripts to initialize the DWH, Staging tables, and Star Schema Dimensions/Facts.
+* `02_ELT_Transformation_Logic.sql` : The core transformation logic handling data cleaning, merging, and loading.
+* `03_Business_Reporting.sql` : Stored Procedures for generating business insights.
+* `source_data/` : Contains the sample datasets (`sample.bak`, `transaction.csv`, `transaction.xlsx`).
 
-## 🚀 Pipeline Architecture (ELT)
-The project follows a 3-step ELT process:
+## 🚀 Pipeline Architecture
+The project follows a robust 3-step ELT process:
 
-1. **Extract:** * Restored the operational `sample` database.
-   * Configured **Apache NiFi** to extract data from the source database, CSV file, and Excel file.
-2. **Load:** * NiFi loads the raw, unprocessed data directly into `Staging_...` tables within the `DWH` database using `ExecuteSQL` and `PutDatabaseRecord` processors.
-3. **Transform (In-Database):** * Created a Stored Procedure (`sp_PopulateDWH`) to clean, transform, and merge the staging data into standard **Dimension** (`DimBranch`, `DimAccount`, `DimCustomer`) and **Fact** (`FactTransaction`) tables.
+1.  **Ingestion (NiFi):**
+    * Extracts operational data from a Source Database (`sample.bak`).
+    * Ingests raw CSV and Excel files containing transaction logs.
+    * Loads raw data directly into **Staging Tables** in the DWH.
+2.  **Transformation (SQL):**
+    * Cleans and standardizes data (e.g., uppercasing names, joining addresses).
+    * Populates **Dimension Tables**: `DimBranch`, `DimAccount`, `DimCustomer`.
+    * Merges heterogeneous sources into a central **Fact Table**: `FactTransaction`.
+3.  **Reporting:**
+    * Exposes Stored Procedures for end-users to query daily performance and live balances.
 
-## 🧠 Key Challenges Solved
-During the transformation phase, several data quality issues were addressed:
-* **Heterogeneous Date Formats:** Handled date conversion from standard `dd/mm/yyyy` (CSV) and converted **Unix Timestamps** (Excel) into standard human-readable SQL `DATE` formats using mathematical manipulation (`DATEADD`).
-* **Data Deduplication:** Implemented idempotency using `ROW_NUMBER() OVER(PARTITION BY...)` and `CTE` to prevent Primary Key violations and duplicate transaction entries when the pipeline runs multiple times.
-* **Data Standardization:** Applied `UPPER()` functions and consolidated customer address dimensions (joining Customer, City, and State).
+## 🧠 Key Technical Challenges Solved
+This project addresses several real-world data engineering challenges:
 
-## 📊 Reporting & Analytics
-Created Stored Procedures to answer specific business requirements:
-1. **`usp_DailyTransaction`**: Generates a summary of total transactions and amounts within a specific date range.
-2. **`usp_BalancePerCustomer`**: Calculates the real-time active balance for a specific customer by dynamically aggregating historical deposits and withdrawals against their initial balance.
+### 1. Heterogeneous Date Formats
+* **Problem:** The source data used inconsistent date formats. CSV files used `dd/mm/yyyy`, while Excel files used **Unix Timestamps** (milliseconds).
+* **Solution:** Implemented SQL transformation logic using `CONVERT(DATE, ..., 103)` for CSV and mathematical conversion (`DATEADD` + timestamp division) for Excel data.
+
+### 2. Data Deduplication & Idempotency
+* **Problem:** Running the pipeline multiple times caused duplicate transaction entries in the Fact Table.
+* **Solution:** Implemented a **CTE (Common Table Expression)** with `ROW_NUMBER()` ranking to identify and filter out duplicate IDs before insertion, ensuring the pipeline is idempotent.
+
+### 3. Customer Dimension Modeling
+* **Problem:** Customer address data was normalized across `Customer`, `City`, and `State` tables.
+* **Solution:** Denormalized these tables into a single `DimCustomer` table using `LEFT JOIN` to create a user-friendly dimension for reporting.
+
+## 📊 Reporting Modules
+Two Stored Procedures were created to serve business needs:
+1.  **`usp_DailyTransaction`**:
+    * Input: Start Date, End Date.
+    * Output: Aggregated transaction count and total amount per day.
+2.  **`usp_BalancePerCustomer`**:
+    * Input: Customer Name.
+    * Output: Calculates **Current Balance** dynamically by aggregating `Initial Balance` + `Total Deposits` - `Total Withdrawals`.
 
 ## 🏃‍♂️ How to Run
-1. Restore `sample.bak` in SQL Server.
-2. Create an empty database named `DWH`.
-3. Run `1_DDL_DWH_Schema.sql` to build the table structures.
-4. Setup Apache NiFi flows to route the CSV, Excel, and Source DB data into the Staging tables.
-5. Execute `sp_PopulateDWH` to transform the data.
-6. Execute the reporting stored procedures to view results.
+1.  Restore the `sample.bak` database to SQL Server.
+2.  Execute `01_DDL_Schema_Setup.sql` to create the DWH structure.
+3.  Run the Apache NiFi flow to ingest data from CSV, Excel, and Source DB into Staging tables.
+4.  Execute `02_ELT_Transformation_Logic.sql` to populate Dimensions and Facts.
+5.  Use `EXEC usp_DailyTransaction ...` to view reports.
+
+---
+*Created by Septian Rizqi Arifandi*
