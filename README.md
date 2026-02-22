@@ -87,5 +87,6 @@ EXEC dbo.usp_DailyTransaction '2024-01-01', '2024-01-31';
 
 -- Check Customer Balance
 EXEC dbo.usp_BalancePerCustomer 'Shelly Juwita';
-
-Created by Septian Rizqi Arifandi
+```
+---
+*Created by Septian Rizqi Arifandi*
